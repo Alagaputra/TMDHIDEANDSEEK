@@ -1,5 +1,4 @@
 package model;
-
 import java.awt.Rectangle;
 
 // ABSTRACT CLASS: Kelas dasar yang tidak bisa dibuat langsung (di-instansiasi).

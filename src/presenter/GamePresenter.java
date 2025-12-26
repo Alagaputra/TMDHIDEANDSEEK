@@ -72,19 +72,32 @@ public class GamePresenter {
     private void prosesLoginDanMain() {
         String inputUsername = menuPanel.getUsername();
         if (inputUsername.trim().isEmpty()) { JOptionPane.showMessageDialog(window, "Username harus diisi!"); return; }
+        
+        int initialAmmo = 0; 
+
         try {
             DB db = new DB();
             ResultSet rs = db.selectQuery("SELECT * FROM tbenefit WHERE username = '" + inputUsername + "'");
-            if (!rs.next()) {
+            
+            if (rs.next()) {
+                // USER LAMA: Ambil sisa peluru terakhir
+                initialAmmo = rs.getInt("sisa_peluru");
+            } else {
+                // USER BARU: Buat data baru, peluru awal 0
                 db.updateQuery("INSERT INTO tbenefit (username, skor, peluru_meleset, sisa_peluru) VALUES ('" + inputUsername + "', 0, 0, 0)");
+                initialAmmo = 0;
             }
             db.close();
             loadTableData();
             
             activeUsername = inputUsername;
-            gameState = new GameState();
-            gamePanel.setGameState(gameState);
             
+            // --- MULAI GAME ---
+            gameState = new GameState();
+            // SET PELURU DARI DATABASE
+            gameState.getPlayer().addAmmo(initialAmmo); 
+            
+            gamePanel.setGameState(gameState);
             window.showGame();
             startGameLoop(); 
         } catch (Exception e) { e.printStackTrace(); }
@@ -125,6 +138,7 @@ public class GamePresenter {
 
     private void startGameLoop() {
         if (gameTimer != null) gameTimer.stop();
+        // Lambda expression otomatis mengimplementasikan ActionListener
         gameTimer = new Timer(16, e -> {
             gameState.update(); 
             gamePanel.repaint(); 

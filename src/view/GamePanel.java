@@ -143,10 +143,8 @@ public class GamePanel extends JPanel {
                 Enemy e = (Enemy) item.object;
                 BufferedImage img = enemyImages.isEmpty() ? null : enemyImages.get(e.getType() % enemyImages.size());
                 if (img != null) {
-                    // HITUNG UKURAN SPRITE DINAMIS
                     int frameW = img.getWidth() / 4;
                     int frameH = img.getHeight();
-                    
                     int col = (int)(gameState.tickCount / 10) % 4;
                     BufferedImage spr = img.getSubimage(col * frameW, 0, frameW, frameH);
                     
@@ -156,21 +154,14 @@ public class GamePanel extends JPanel {
             } 
             else if (item.type == 2) { // Player
                 if (sheetIdle != null) {
-                    // --- PERBAIKAN DI SINI: HITUNG UKURAN ASLI GAMBAR ---
-                    int frameW = sheetIdle.getWidth() / 4;  // Bagi lebar gambar dengan 4 kolom
-                    int frameH = sheetIdle.getHeight() / 4; // Bagi tinggi gambar dengan 4 baris
-                    
+                    int frameW = sheetIdle.getWidth() / 4;
+                    int frameH = sheetIdle.getHeight() / 4;
                     int col = (int)(gameState.tickCount/10) % 4;
-                    int row = pObj.getDirection(); // 0-3
-                    
-                    // Ambil subimage sesuai ukuran asli
+                    int row = pObj.getDirection();
                     BufferedImage spr = sheetIdle.getSubimage(col * frameW, row * frameH, frameW, frameH);
-                    
-                    // Gambar dengan skala yang diinginkan (64x64)
                     g2d.drawImage(spr, (int)pObj.getX(), (int)pObj.getY(), 64, 64, null);
                 } else { 
-                    g2d.setColor(Color.BLUE); 
-                    g2d.fillRect((int)pObj.getX(), (int)pObj.getY(), 64, 64); 
+                    g2d.setColor(Color.BLUE); g2d.fillRect((int)pObj.getX(), (int)pObj.getY(), 64, 64); 
                 }
             }
         }
@@ -184,6 +175,7 @@ public class GamePanel extends JPanel {
         // 6. HUD
         g2d.translate(camX, camY); 
         
+        // Nyawa
         for (int i = 0; i < 3; i++) {
             double val = pObj.getHealth() - i;
             if (val >= 1.0 && heartFull != null) g2d.drawImage(heartFull, 20 + (i*35), 20, 32, 32, null);
@@ -191,12 +183,25 @@ public class GamePanel extends JPanel {
             else if (heartEmpty != null) g2d.drawImage(heartEmpty, 20 + (i*35), 20, 32, 32, null);
         }
 
+        // Statistik
         g2d.setColor(Color.WHITE); g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 14));
         g2d.drawString("Skor: " + gameState.skor, 20, 70);
         g2d.setColor(Color.YELLOW); g2d.drawString("Ammo: " + pObj.getAmmo(), 20, 90);
         g2d.setColor(Color.GREEN);  g2d.drawString("Peluru Meleset: " + gameState.peluruMeleset, 20, 110);
-        g2d.setColor(Color.CYAN);   g2d.drawString("WAVE " + gameState.wave, 350, 40);
+        
+        // WAVE & SISA MUSUH (Ini yang tadi hilang)
+        g2d.setColor(Color.CYAN);
+        g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 18));
+        g2d.drawString("WAVE " + gameState.wave, 350, 40);
+        
+        // Hitung sisa musuh
+        // Total target wave - yang sudah spawn + yang masih hidup di layar
+        int sisaMusuh = (gameState.maxEnemiesInWave - gameState.enemiesSpawned) + gameState.getEnemies().size();
+        
+        g2d.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 12));
+        g2d.drawString("Enemies Left: " + sisaMusuh, 350, 60);
 
+        // GAME OVER SCREEN
         if (gameState.isGameOver) {
             g2d.setColor(new Color(0, 0, 0, 180)); g2d.fillRect(0, 0, 800, 600);
             g2d.setColor(Color.RED); g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 50));
@@ -214,12 +219,9 @@ public class GamePanel extends JPanel {
         if (!animList.isEmpty()) {
             int frame = (int)(gameState.tickCount / 3) % animList.size();
             BufferedImage sprite = animList.get(frame);
-            
             AffineTransform old = g2d.getTransform();
             g2d.translate(b.getX() + 32, b.getY() + 32); 
             g2d.rotate(Math.atan2(b.getVelY(), b.getVelX()) + Math.PI); 
-            
-            // Gambar centered
             g2d.drawImage(sprite, -32, -32, 64, 64, null);
             g2d.setTransform(old);
         } else {

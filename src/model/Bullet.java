@@ -1,18 +1,20 @@
 package model;
 
+// INHERITANCE: Bullet juga adalah GameObject.
 public class Bullet extends GameObject {
-    private double velX, velY; // Vektor kecepatan (Velocity)
-    private boolean isActive = true; // Status aktif (jika false akan dihapus)
-    private boolean isEnemyBullet;   // Penanda: Punya musuh atau player?
+    
+    private double velX, velY;       // Kecepatan Horizontal & Vertikal
+    private boolean isActive = true; // Status aktif. Jika false, akan dihapus dari memori.
+    private boolean isEnemyBullet;   // Penanda: Apakah ini peluru musuh atau player?
 
     public Bullet(double x, double y, double velX, double velY, boolean isEnemyBullet) {
-        super(x, y, 20, 20); // Ukuran peluru 20x20
+        super(x, y, 20, 20); // Set ukuran peluru 20x20
         this.velX = velX;
         this.velY = velY;
         this.isEnemyBullet = isEnemyBullet;
     }
 
-    // Method untuk menggerakkan peluru (Behavior)
+    // BEHAVIOR: Method khusus untuk menggerakkan peluru.
     public void move() {
         this.x += velX;
         this.y += velY;

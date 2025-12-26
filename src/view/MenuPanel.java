@@ -15,26 +15,26 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.TableModel;
 
 public class MenuPanel extends JPanel {
+    // Komponen GUI
     private JTextField txtUsername;
     private JTable table;
-    private JButton btnPlay;
-    private JButton btnQuit;
+    private JButton btnPlay, btnQuit;
 
     public MenuPanel() {
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout()); // Layout utama
         setBackground(Color.WHITE);
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setBorder(new EmptyBorder(20, 20, 20, 20)); // Padding
 
         // 1. JUDUL
         JLabel lblTitle = new JLabel("HIDE AND SEEK THE CHALLENGE", JLabel.CENTER);
         lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
         add(lblTitle, BorderLayout.NORTH);
 
-        // 2. BAGIAN TENGAH (Form & Tabel)
+        // 2. TENGAH (Input & Tabel)
         JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
         centerPanel.setBackground(Color.WHITE);
 
-        // Form Username
+        // Panel Input Username
         JPanel formPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         formPanel.setBackground(Color.WHITE);
         formPanel.add(new JLabel("Username: "));
@@ -42,14 +42,14 @@ public class MenuPanel extends JPanel {
         formPanel.add(txtUsername);
         centerPanel.add(formPanel, BorderLayout.NORTH);
 
-        // Tabel Skor
+        // Tabel Data Skor (Scrollable)
         table = new JTable();
         JScrollPane scrollPane = new JScrollPane(table);
         centerPanel.add(scrollPane, BorderLayout.CENTER);
 
         add(centerPanel, BorderLayout.CENTER);
 
-        // 3. TOMBOL BAWAH
+        // 3. BAWAH (Tombol)
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         buttonPanel.setBackground(Color.WHITE);
         
@@ -66,19 +66,13 @@ public class MenuPanel extends JPanel {
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
-    public String getUsername() {
-        return txtUsername.getText();
-    }
-
-    public void setTableModel(TableModel model) {
-        table.setModel(model);
-    }
-
-    public void setPlayAction(ActionListener action) {
-        btnPlay.addActionListener(action);
-    }
-
-    public void setQuitAction(ActionListener action) {
-        btnQuit.addActionListener(action);
-    }
+    // Getter untuk data input
+    public String getUsername() { return txtUsername.getText(); }
+    
+    // Setter untuk model tabel (Dipanggil Presenter)
+    public void setTableModel(TableModel model) { table.setModel(model); }
+    
+    // Setter untuk Action Listener (Dipanggil Presenter)
+    public void setPlayAction(ActionListener action) { btnPlay.addActionListener(action); }
+    public void setQuitAction(ActionListener action) { btnQuit.addActionListener(action); }
 }

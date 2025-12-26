@@ -6,79 +6,50 @@ import java.util.List;
 import java.util.Random;
 
 public class GameState {
+    // --- KONSTANTA MAP ---
     public final int worldWidth = 1200;  
     public final int worldHeight = 900; 
 
-    public int playerX = 600; 
-    public int playerY = 450; 
-    public int direction = 0; 
-    public double health = 3.0;      
-    public int playerAmmo = 0; // Awal main 0 peluru (Sesuai PDF)
+    // --- OBJEK GAME (OOP) ---
+    private Player player; // Menggunakan Class Player
     
+    // Koleksi (List) untuk menyimpan banyak objek sekaligus
+    private List<Enemy> enemies = new ArrayList<>();
+    private List<Bullet> bullets = new ArrayList<>();
+    private List<PowerUp> powerUps = new ArrayList<>(); 
+    private List<Rectangle> boundaries = new ArrayList<>(); // Tembok pinggir
+    private List<Rectangle> obstacles = new ArrayList<>();  // Pohon/Batu
+
+    // --- STATUS PERMAINAN ---
     public int wave = 1;                
     public int enemiesSpawned = 0;      
     public int maxEnemiesInWave = 12;   
-    
     public boolean isGameOver = false;
     public int skor = 0;
     public int peluruMeleset = 0; 
 
-    public long tickCount = 0;  
-    public boolean isUp, isDown, isLeft, isRight; 
-
-    // --- SOUND SYSTEM ---
+    public long tickCount = 0;  // Frame counter
+    private int damageCooldown = 0; // Timer kebal
+    
+    // Sistem Request Suara
     public List<Integer> soundRequests = new ArrayList<>();
 
-    public class Bullet {
-        public double x, y, velX, velY; 
-        public boolean isActive = true;
-        public boolean isEnemyBullet; 
-        public Bullet(double x, double y, double velX, double velY, boolean isEnemyBullet) {
-            this.x = x; this.y = y; this.velX = velX; this.velY = velY; this.isEnemyBullet = isEnemyBullet;
-        }
-    }
-
-    public class PowerUp {
-        public int x, y;
-        public boolean isActive = true;
-        public int width = 24; public int height = 24;
-        public PowerUp(int x, int y) { this.x = x; this.y = y; }
-    }
-
-    public class Enemy {
-        public double x, y, speed; 
-        public int type;
-        public boolean isFacingRight = true;
-        public int shootCooldown = 0; 
-        
-        public Enemy(double x, double y, double baseSpeed, int type) {
-            this.x = x; this.y = y; this.type = type;
-            if (type == 0) this.speed = baseSpeed;
-            else if (type == 1) this.speed = baseSpeed + 1.5; 
-            else if (type == 2) {
-                this.speed = baseSpeed - 0.8; 
-                if (this.speed < 1.0) this.speed = 1.0; 
-            }
-            this.shootCooldown = 10 + new Random().nextInt(20); 
-        }
-    }
-
-    public List<Enemy> enemies = new ArrayList<>();
-    public List<Bullet> bullets = new ArrayList<>();
-    public List<PowerUp> powerUps = new ArrayList<>(); 
-    public List<Rectangle> boundaries = new ArrayList<>(); 
-    public List<Rectangle> obstacles = new ArrayList<>();  
-    private int damageCooldown = 0; 
-
+    // Constructor GameState
     public GameState() {
-        setupForestMap();
-        generateRandomObstacles(); 
+        // Buat objek Player baru di posisi tengah (600, 450)
+        player = new Player(600, 450);
+        
+        setupForestMap();          // Buat tembok pinggir
+        generateRandomObstacles(); // Buat rintangan acak
     }
     
-    public void requestSound(int id) {
-        soundRequests.add(id);
-    }
+    // Getter Player untuk diakses View/Presenter
+    public Player getPlayer() { return player; } 
+    
+    // Method request suara
+    public void requestSound(int id) { soundRequests.add(id); }
 
+    // Setup Batas Map
     private void setupForestMap() {
         boundaries.clear();
         boundaries.add(new Rectangle(0, 0, 50, worldHeight));            
@@ -87,209 +58,221 @@ public class GameState {
         boundaries.add(new Rectangle(0, worldHeight - 50, worldWidth, 50)); 
     }
 
+    // Generate Pohon Acak (Anti-Numpuk)
     private void generateRandomObstacles() {
         Random rand = new Random();
         obstacles.clear();
-        int jumlahPohon = 12; int ukuran = 40; 
         int count = 0; int safety = 0;
         
-        while (count < jumlahPohon && safety < 5000) {
+        while (count < 12 && safety < 5000) {
             safety++;
             int rx = 80 + rand.nextInt(worldWidth - 160); 
             int ry = 80 + rand.nextInt(worldHeight - 160);
-            double distToPlayer = Math.sqrt(Math.pow(rx - playerX, 2) + Math.pow(ry - playerY, 2));
-            if (distToPlayer < 120) continue; 
             
-            boolean terlaluDekat = false;
-            for (Rectangle existing : obstacles) {
-                double distToTree = Math.sqrt(Math.pow(rx - existing.x, 2) + Math.pow(ry - existing.y, 2));
-                if (distToTree < 150) { terlaluDekat = true; break; }
+            // Cek Jarak ke Player (Pakai Method getter getX/getY)
+            double dist = Math.sqrt(Math.pow(rx - player.getX(), 2) + Math.pow(ry - player.getY(), 2));
+            if (dist < 120) continue; 
+            
+            // Cek Jarak ke Pohon Lain
+            boolean close = false;
+            for (Rectangle obs : obstacles) {
+                if (Math.sqrt(Math.pow(rx - obs.x, 2) + Math.pow(ry - obs.y, 2)) < 150) { close = true; break; }
             }
-            if (terlaluDekat) continue;
-            obstacles.add(new Rectangle(rx, ry, ukuran, ukuran));
+            if (close) continue;
+            
+            obstacles.add(new Rectangle(rx, ry, 40, 40));
             count++;
         }
     }
 
-    private boolean cekTabrakan(int x, int y) {
-        Rectangle futureObj = new Rectangle(x + 16, y + 16, 32, 32); 
-        for (Rectangle wall : boundaries) { if (futureObj.intersects(wall)) return true; }
-        for (Rectangle rock : obstacles) { if (futureObj.intersects(rock)) return true; }
+    // Cek Tabrakan Fisik (Tembok/Pohon)
+    private boolean cekTabrakan(double x, double y) {
+        Rectangle futureObj = new Rectangle((int)x + 16, (int)y + 16, 32, 32); 
+        for (Rectangle wall : boundaries) if (futureObj.intersects(wall)) return true;
+        for (Rectangle rock : obstacles) if (futureObj.intersects(rock)) return true;
         return false; 
     }
 
+    // Logika Player Menembak
     public void playerShoot() {
-        if (playerAmmo > 0) { 
+        // Cek ammo lewat method getter
+        if (player.getAmmo() > 0) { 
             double speed = 10.0 + (wave * 1.5);
             if (speed > 25.0) speed = 25.0;
 
             double vx = 0, vy = 0;
-            if (isUp)    vy -= speed; if (isDown)  vy += speed;
-            if (isLeft)  vx -= speed; if (isRight) vx += speed;
+            // Akses input lewat atribut public di Player
+            if (player.isUp)    vy -= speed; if (player.isDown)  vy += speed;
+            if (player.isLeft)  vx -= speed; if (player.isRight) vx += speed;
+            
             if (vx != 0 && vy != 0) { vx *= 0.707; vy *= 0.707; }
             
             if (vx == 0 && vy == 0) {
-                if (direction == 0) vy = speed;      
-                else if (direction == 1) vx = -speed; 
-                else if (direction == 2) vx = speed;  
-                else if (direction == 3) vy = -speed; 
+                // Akses direction lewat getter
+                if (player.getDirection() == 0) vy = speed;      
+                else if (player.getDirection() == 1) vx = -speed; 
+                else if (player.getDirection() == 2) vx = speed;  
+                else if (player.getDirection() == 3) vy = -speed; 
             }
 
-            bullets.add(new Bullet(playerX + 24, playerY + 24, vx, vy, false)); 
-            playerAmmo--; 
+            // Tambah Bullet baru ke list
+            bullets.add(new Bullet(player.getX() + 24, player.getY() + 24, vx, vy, false)); 
             
-            requestSound(1); // Suara Tembak Player
+            // Kurangi ammo lewat method
+            player.decreaseAmmo();
+            requestSound(1); 
         }
     }
 
+    // UPDATE GAME LOOP
     public void update() {
         if (isGameOver) return;
         tickCount++; 
         if (damageCooldown > 0) damageCooldown--;
 
+        // Cek Ganti Wave
         if (enemies.isEmpty() && enemiesSpawned >= maxEnemiesInWave) {
             wave++; enemiesSpawned = 0; maxEnemiesInWave = 12 + (wave * 4); 
             generateRandomObstacles(); 
-            System.out.println("WAVE " + wave + " STARTED!");
         }
-
         if (enemiesSpawned < maxEnemiesInWave && enemies.size() < 15) { 
             if (tickCount % 50 == 0 || enemies.isEmpty()) spawnEnemyBasedOnWave();
         }
 
-        // --- PLAYER MOVEMENT ---
+        // --- UPDATE PLAYER ---
         double dx = 0; double dy = 0; int baseSpeed = 6; 
-        if (isUp)    dy -= 1; if (isDown)  dy += 1;
-        if (isLeft)  dx -= 1; if (isRight) dx += 1;
+        if (player.isUp)    dy -= 1; if (player.isDown)  dy += 1;
+        if (player.isLeft)  dx -= 1; if (player.isRight) dx += 1;
         if (dx != 0 && dy != 0) { dx *= 0.7071; dy *= 0.7071; }
-        int velX = (int) (dx * baseSpeed); int velY = (int) (dy * baseSpeed);
+        
+        double nextX = player.getX() + (dx * baseSpeed);
+        double nextY = player.getY() + (dy * baseSpeed);
 
-        if (velX != 0) {
-            if (!cekTabrakan(playerX + velX, playerY)) playerX += velX;
-            if (velX > 0) direction = 2; if (velX < 0) direction = 1; 
+        // Update Posisi X dengan Cek Tabrakan
+        if (dx * baseSpeed != 0) {
+            if (!cekTabrakan(nextX, player.getY())) player.setX(nextX);
+            // Set arah hadap
+            if (dx > 0) player.setDirection(2); else if (dx < 0) player.setDirection(1);
         }
-        if (velY != 0) {
-            if (!cekTabrakan(playerX, playerY + velY)) playerY += velY;
-            if (velY > 0) direction = 0; if (velY < 0) direction = 3; 
+        // Update Posisi Y dengan Cek Tabrakan
+        if (dy * baseSpeed != 0) {
+            if (!cekTabrakan(player.getX(), nextY)) player.setY(nextY);
+            if (dy > 0) player.setDirection(0); else if (dy < 0) player.setDirection(3);
         }
-        if (playerX < 0) playerX = 0; if (playerX > worldWidth - 64) playerX = worldWidth - 64;
-        if (playerY < 0) playerY = 0; if (playerY > worldHeight - 64) playerY = worldHeight - 64;
+        
+        // Batas Layar
+        if (player.getX() < 0) player.setX(0); 
+        if (player.getX() > worldWidth - 64) player.setX(worldWidth - 64);
+        if (player.getY() < 0) player.setY(0); 
+        if (player.getY() > worldHeight - 64) player.setY(worldHeight - 64);
 
-        // --- BULLETS LOGIC ---
+        // --- UPDATE BULLETS ---
         for (Bullet b : bullets) {
-            if (!b.isActive) continue;
-            b.x += b.velX; b.y += b.velY;
+            if (!b.isActive()) continue;
+            b.move(); // Panggil method move() dari class Bullet
 
             boolean hitWall = false;
-            // Cek keluar batas layar
-            if (b.x < -50 || b.x > worldWidth + 50 || b.y < -50 || b.y > worldHeight + 50) hitWall = true;
-            
-            // Cek tabrakan dinding/pohon
-            for (Rectangle wall : boundaries) { if (new Rectangle((int)b.x, (int)b.y, 30, 30).intersects(wall)) hitWall = true; }
-            for (Rectangle rock : obstacles) { if (new Rectangle((int)b.x, (int)b.y, 30, 30).intersects(rock)) hitWall = true; }
+            // Cek Keluar Layar (Pakai getter)
+            if (b.getX() < -50 || b.getX() > worldWidth + 50 || b.getY() < -50 || b.getY() > worldHeight + 50) hitWall = true;
+            // Cek Tabrakan Objek
+            for (Rectangle wall : boundaries) if (b.getBounds().intersects(wall)) hitWall = true;
+            for (Rectangle rock : obstacles) if (b.getBounds().intersects(rock)) hitWall = true;
 
             if (hitWall) {
-                b.isActive = false;
-                
-                // LOGIKA: Jika peluru MUSUH nabrak tembok/pohon = Player Jago Menghindar
-                if (b.isEnemyBullet) {
-                    peluruMeleset++; // Statistik naik
-                    playerAmmo++;    // Dapat bonus peluru
-                    // requestSound(4); // (Opsional) Suara bonus
+                b.setActive(false);
+                // Jika peluru musuh nabrak tembok -> Dapat Ammo
+                if (b.isEnemyBullet()) {
+                    peluruMeleset++;
+                    player.addAmmo(1);
                 }
             }
         }
 
-        // --- ENEMIES LOGIC ---
+        // --- UPDATE ENEMIES ---
         Random rng = new Random();
         List<Enemy> deadEnemies = new ArrayList<>();
         
         for (Enemy e : enemies) {
-            // Pergerakan Musuh
-            if (e.x < playerX) { e.x += e.speed; e.isFacingRight = true; }
-            if (e.x > playerX) { e.x -= e.speed; e.isFacingRight = false; }
-            if (e.y < playerY) e.y += e.speed;
-            if (e.y > playerY) e.y -= e.speed;
+            // AI Movement (Kejar Player)
+            if (e.getX() < player.getX()) { e.setX(e.getX() + e.getSpeed()); e.setFacingRight(true); }
+            if (e.getX() > player.getX()) { e.setX(e.getX() - e.getSpeed()); e.setFacingRight(false); }
+            if (e.getY() < player.getY()) e.setY(e.getY() + e.getSpeed());
+            if (e.getY() > player.getY()) e.setY(e.getY() - e.getSpeed());
 
-            // Logika Tembak
-            double diffX = (playerX + 24) - (e.x + 24); 
-            double diffY = (playerY + 24) - (e.y + 24); 
+            // AI Shoot
+            double diffX = (player.getX() + 24) - (e.getX() + 24); 
+            double diffY = (player.getY() + 24) - (e.getY() + 24); 
             double distance = Math.sqrt((diffX * diffX) + (diffY * diffY));
 
-            if (e.shootCooldown > 0) { 
-                e.shootCooldown--; 
+            if (e.getShootCooldown() > 0) { 
+                e.updateCooldown();
             } else {
-                boolean insideMap = (e.x > 50 && e.x < worldWidth - 50 && e.y > 50 && e.y < worldHeight - 50);
+                boolean insideMap = (e.getX() > 50 && e.getX() < worldWidth - 50 && e.getY() > 50 && e.getY() < worldHeight - 50);
                 if (insideMap && distance < 600) { 
                     double angle = Math.atan2(diffY, diffX);
-                    double bSpeed = 4.0 + (wave * 0.75); 
-                    if (bSpeed > 15.0) bSpeed = 15.0;
+                    double bSpeed = Math.min(15.0, 4.0 + (wave * 0.75));
                     
-                    bullets.add(new Bullet(e.x + 24, e.y + 24, bSpeed * Math.cos(angle), bSpeed * Math.sin(angle), true));
-                    e.shootCooldown = 30 + rng.nextInt(30); 
-                    // TIDAK ADA requestSound(1) di sini -> Musuh menembak bisu (biar gak berisik)
+                    bullets.add(new Bullet(e.getX() + 24, e.getY() + 24, bSpeed * Math.cos(angle), bSpeed * Math.sin(angle), true));
+                    e.resetCooldown();
                 }
             }
 
-            // Tabrakan Musuh vs Peluru
-            Rectangle rectEnemy = new Rectangle((int)e.x, (int)e.y, 50, 50);
-            
+            Rectangle rectEnemy = e.getBounds();
+            // Cek Tabrakan Peluru
             for (Bullet b : bullets) {
-                // Peluru Player kena Musuh
-                if (b.isActive && !b.isEnemyBullet && rectEnemy.intersects(new Rectangle((int)b.x, (int)b.y, 30, 30))) {
-                    b.isActive = false; 
-                    deadEnemies.add(e); 
+                if (b.isActive() && !b.isEnemyBullet() && rectEnemy.intersects(b.getBounds())) {
+                    b.setActive(false);
+                    deadEnemies.add(e);
                     skor += 10;
-                    if (rng.nextInt(100) < 40) powerUps.add(new PowerUp((int)e.x, (int)e.y));
+                    if (rng.nextInt(100) < 40) powerUps.add(new PowerUp(e.getX(), e.getY()));
                 }
                 
-                // Peluru Musuh kena Player
-                if (b.isActive && b.isEnemyBullet) {
-                     if (new Rectangle(playerX + 8, playerY + 8, 48, 48).intersects(new Rectangle((int)b.x, (int)b.y, 30, 30))) {
-                         b.isActive = false;
+                if (b.isActive() && b.isEnemyBullet()) {
+                     Rectangle pRect = new Rectangle((int)player.getX()+8, (int)player.getY()+8, 48, 48);
+                     if (pRect.intersects(b.getBounds())) {
+                         b.setActive(false);
                          if (damageCooldown == 0) { 
-                             health -= 0.5; 
+                             player.takeDamage(0.5); // Kurangi darah player
                              damageCooldown = 60; 
-                             if (health <= 0) isGameOver = true; 
+                             if (player.getHealth() <= 0) isGameOver = true; 
                          }
                      }
                 }
             }
             
-            // Tabrakan Badan Musuh kena Player
-            if (damageCooldown == 0 && rectEnemy.intersects(new Rectangle(playerX + 8, playerY + 8, 48, 48))) {
-                health -= 1.0; 
+            // Cek Tabrakan Badan Musuh
+            if (damageCooldown == 0 && rectEnemy.intersects(new Rectangle((int)player.getX()+8, (int)player.getY()+8, 48, 48))) {
+                player.takeDamage(1.0); 
                 damageCooldown = 60; 
-                if (health <= 0) isGameOver = true;
+                if (player.getHealth() <= 0) isGameOver = true;
             }
         }
 
-        // Ambil PowerUp (Potion)
+        // Cek PowerUp
         for (PowerUp p : powerUps) {
-            if (p.isActive && new Rectangle(playerX, playerY, 64, 64).intersects(new Rectangle(p.x, p.y, p.width, p.height))) {
-                p.isActive = false; 
-                if (health < 3.0) health += 1.0; 
+            if (p.isActive() && new Rectangle((int)player.getX(), (int)player.getY(), 64, 64).intersects(p.getBounds())) {
+                p.setActive(false); 
+                player.heal(1.0); // Tambah darah player
             }
         }
 
-        bullets.removeIf(b -> !b.isActive); 
-        powerUps.removeIf(p -> !p.isActive); 
+        // Bersihkan List
+        bullets.removeIf(b -> !b.isActive()); 
+        powerUps.removeIf(p -> !p.isActive()); 
         enemies.removeAll(deadEnemies);
     }
     
+    // Spawn Musuh
     private void spawnEnemyBasedOnWave() {
         Random rng = new Random();
-        double baseSpeed = 2.0; double speedIncrease = (wave - 1) * 0.25; 
-        double calculatedSpeed = baseSpeed + speedIncrease;
-        if (calculatedSpeed > 8.0) calculatedSpeed = 8.0; 
-        
-        int ey = worldHeight + 60; // Muncul dari bawah layar
-        int ex = 50 + rng.nextInt(worldWidth - 100);
-        
-        enemies.add(new Enemy(ex, ey, calculatedSpeed, rng.nextInt(3)));
+        double speed = Math.min(8.0, 2.0 + ((wave - 1) * 0.25));
+        enemies.add(new Enemy(50 + rng.nextInt(worldWidth - 100), worldHeight + 60, speed, rng.nextInt(3)));
         enemiesSpawned++; 
     }
-
-    public int getPlayerX() { return playerX; }
-    public int getPlayerY() { return playerY; }
+    
+    // Getter List untuk View
+    public List<Rectangle> getObstacles() { return obstacles; }
+    public List<Enemy> getEnemies() { return enemies; }
+    public List<Bullet> getBullets() { return bullets; }
+    public List<PowerUp> getPowerUps() { return powerUps; }
 }

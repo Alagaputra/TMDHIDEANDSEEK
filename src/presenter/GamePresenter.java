@@ -1,7 +1,5 @@
 package presenter;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.sql.ResultSet;
@@ -13,6 +11,7 @@ import model.DB;
 import model.GameState;
 import model.TBenefit;
 import model.TabelModelTBenefit;
+import model.Player;
 import view.GamePanel;
 import view.GameWindow;
 import view.MenuPanel;
@@ -34,20 +33,13 @@ public class GamePresenter {
         this.menuPanel.setPlayAction(e -> prosesLoginDanMain());
         this.menuPanel.setQuitAction(e -> System.exit(0));
         
-        setupInput();
+        setupInput(); 
     }
 
-    // --- FUNGSI STOP GAME & BALIK KE MENU (SESUAI PDF HAL 6) ---
     private void stopGame() {
-        if (gameTimer != null) gameTimer.stop(); // Hentikan timer game
-        
-        // Simpan Data Terakhir ke Database sebelum keluar
+        if (gameTimer != null) gameTimer.stop(); 
         saveScoreToDB();
-        
-        // Refresh tabel di menu
         loadTableData();
-        
-        // Kembali ke Tampilan Awal (Menu)
         window.showMenu(); 
     }
 
@@ -55,20 +47,13 @@ public class GamePresenter {
         if (activeUsername == null) return;
         try {
             DB db = new DB();
-            // Update skor dan data peluru ke database
-            // (Asumsi skor bersifat akumulatif sesuai PDF hal 5 poin 89)
             String query = String.format(
                 "UPDATE tbenefit SET skor = skor + %d, peluru_meleset = peluru_meleset + %d, sisa_peluru = %d WHERE username = '%s'",
-                gameState.skor, 
-                gameState.peluruMeleset, 
-                gameState.playerAmmo, 
-                activeUsername
+                gameState.skor, gameState.peluruMeleset, gameState.getPlayer().getAmmo(), activeUsername
             );
             db.updateQuery(query);
             db.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     public void loadTableData() {
@@ -94,11 +79,9 @@ public class GamePresenter {
                 db.updateQuery("INSERT INTO tbenefit (username, skor, peluru_meleset, sisa_peluru) VALUES ('" + inputUsername + "', 0, 0, 0)");
             }
             db.close();
-            loadTableData(); // Refresh data
+            loadTableData();
             
             activeUsername = inputUsername;
-            
-            // Reset Game State Baru
             gameState = new GameState();
             gamePanel.setGameState(gameState);
             
@@ -112,51 +95,39 @@ public class GamePresenter {
             @Override
             public void keyPressed(KeyEvent e) {
                 int code = e.getKeyCode();
-                
-                // --- 1. TOMBOL SPACE: STOP & KEMBALI KE MENU (SESUAI PDF) ---
-                if (code == KeyEvent.VK_SPACE) {
-                    stopGame();
-                    return; 
-                }
+                Player p = gameState.getPlayer();
 
-                // --- 2. TOMBOL Z: MENEMBAK (PENGGANTI SPACE) ---
-                if (code == KeyEvent.VK_Z) {
-                    if (!gameState.isGameOver) gameState.playerShoot();
-                }
-
-                // --- 3. TOMBOL PANAH / WASD: GERAK ---
-                if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) gameState.isUp = true;
-                if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) gameState.isDown = true;
-                if (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT) gameState.isLeft = true;
-                if (code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT) gameState.isRight = true;
-
-                // --- 4. TOMBOL R: RESTART (OPSIONAL TAPI BAGUS) ---
-                if (gameState.isGameOver && code == KeyEvent.VK_R) {
-                     // Reset state tanpa kembali ke menu
+                if (code == KeyEvent.VK_SPACE) { stopGame(); return; }
+                if (code == KeyEvent.VK_Z && !gameState.isGameOver) gameState.playerShoot();
+                if (code == KeyEvent.VK_R && gameState.isGameOver) {
                      gameState = new GameState();
                      gamePanel.setGameState(gameState);
                 }
+
+                if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) p.isUp = true;
+                if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) p.isDown = true;
+                if (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT) p.isLeft = true;
+                if (code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT) p.isRight = true;
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
                 int code = e.getKeyCode();
-                if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) gameState.isUp = false;
-                if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) gameState.isDown = false;
-                if (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT) gameState.isLeft = false;
-                if (code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT) gameState.isRight = false;
+                Player p = gameState.getPlayer();
+
+                if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) p.isUp = false;
+                if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) p.isDown = false;
+                if (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT) p.isLeft = false;
+                if (code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT) p.isRight = false;
             }
         });
     }
 
     private void startGameLoop() {
         if (gameTimer != null) gameTimer.stop();
-        gameTimer = new Timer(16, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                gameState.update();
-                gamePanel.repaint();
-            }
+        gameTimer = new Timer(16, e -> {
+            gameState.update(); 
+            gamePanel.repaint(); 
         });
         gameTimer.start();
     }

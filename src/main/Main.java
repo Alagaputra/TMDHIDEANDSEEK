@@ -1,11 +1,11 @@
 // saya Ajipati Alaga Putra dengan NIM 2409682
-// mengerjakan UTS dalam mata kuliah DPBO
+// mengerjakan TMD dalam mata kuliah DPBO
 // untuk keberkahannya maka saya tidak akan melakukan kecurangan
-// sepertu yang telah di spesifikasikan Aamiin.
+// seperti yang telah di spesifikasikan Aamiin.
 
 
 // CREDIT GAME ASSET
-// MAP.............(GEMINI AI)
+// MAP.............(CHATGPT AI)
 // CHARACTER.............(https://elvgames.itch.io/free-fantasy-dreamland-sprites)
 // BULLET(PELURU).............(https://craftpix.net/freebies/free-water-and-fire-magic-sprite-vector-pack/)
 // OBSTACLE(RINTANGAN).............(https://anokolisa.itch.io/free-pixel-art-asset-pack-topdown-tileset-rpg-16x16-sprites)
